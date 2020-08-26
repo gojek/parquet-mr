@@ -439,6 +439,9 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
   class StringWriter extends FieldWriter {
     @Override
     final void writeRawValue(Object value) {
+      if(!value.getClass().equals(String.class)) {
+        value = ((Object) value.toString());
+      }
       Binary binaryString = Binary.fromString((String) value);
       recordConsumer.addBinary(binaryString);
     }

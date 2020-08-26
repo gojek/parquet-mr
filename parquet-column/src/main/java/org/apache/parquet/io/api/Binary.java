@@ -24,6 +24,7 @@ import java.io.ObjectStreamException;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.nio.Buffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
@@ -478,8 +479,8 @@ abstract public class Binary implements Comparable<Binary>, Serializable {
     @Override
     public ByteBuffer toByteBuffer() {
       ByteBuffer ret = value.duplicate();
-      ret.position(offset);
-      ret.limit(offset + length);
+      ((Buffer) ret).position(offset);
+      ((Buffer) ret).limit(offset + length);
       return ret;
     }
 
