@@ -177,17 +177,17 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
     String fieldName;
     int index = -1;
 
-     void setFieldName(String fieldName) {
+    void setFieldName(String fieldName) {
       this.fieldName = fieldName;
     }
 
     /** sets index of field inside parquet message.*/
-     void setIndex(int index) {
+    void setIndex(int index) {
       this.index = index;
     }
 
     /** Used for writing repeated fields*/
-     void writeRawValue(Object value) {
+    void writeRawValue(Object value) {
 
     }
 
@@ -593,7 +593,7 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
 
   private FieldWriter unknownType(FieldDescriptor fieldDescriptor) {
     String exceptionMsg = "Unknown type with descriptor \"" + fieldDescriptor
-            + "\" and type \"" + fieldDescriptor.getJavaType() + "\".";
+      + "\" and type \"" + fieldDescriptor.getJavaType() + "\".";
     throw new InvalidRecordException(exceptionMsg);
   }
 

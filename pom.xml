@@ -9,7 +9,7 @@
 
   <groupId>com.gojek.parquet</groupId>
   <artifactId>parquet</artifactId>
-  <version>1.11.4</version>
+  <version>1.11.6</version>
   <packaging>pom</packaging>
 
   <name>Apache Parquet MR</name>
@@ -20,7 +20,7 @@
     <connection>scm:git:git@github.com:gojek/parquet-mr.git</connection>
     <url>scm:git:git@github.com:gojek/parquet-mr.git</url>
     <developerConnection>scm:git:git@github.com:gojek/parquet-mr.git</developerConnection>
-    <tag>apache-parquet-1.11.4-rc1</tag>
+    <tag>apache-parquet-1.11.6-rc0</tag>
   </scm>
 
   <licenses>
@@ -100,8 +100,8 @@
     <pig.version>0.16.0</pig.version>
     <pig.classifier>h2</pig.classifier>
     <thrift-maven-plugin.version>0.10.0</thrift-maven-plugin.version>
-    <thrift.version>0.12.0</thrift.version>
-    <format.thrift.version>0.12.0</format.thrift.version>
+    <thrift.version>0.13.0</thrift.version>
+    <format.thrift.version>0.13.0</format.thrift.version>
     <fastutil.version>8.2.3</fastutil.version>
     <semver.api.version>0.9.33</semver.api.version>
     <slf4j.version>1.7.22</slf4j.version>
