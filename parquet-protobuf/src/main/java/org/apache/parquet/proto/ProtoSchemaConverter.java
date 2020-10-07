@@ -18,6 +18,7 @@
  */
 package org.apache.parquet.proto;
 
+import com.gojek.offset.KafkaNestedOffsetMetadata;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
@@ -33,6 +34,7 @@ import org.apache.parquet.schema.Types.GroupBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -51,27 +53,41 @@ public class ProtoSchemaConverter {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProtoSchemaConverter.class);
   private final boolean parquetSpecsCompliant;
+  private final boolean writeKafkaMetadataFields;
+  private final boolean namespaceKafkaMetadataFields;
 
   public ProtoSchemaConverter() {
     this(false);
   }
 
+  public ProtoSchemaConverter(boolean parquetSpecsCompliant) {
+    this(parquetSpecsCompliant, false, false);
+  }
+
   /**
    * Instantiate a schema converter to get the parquet schema corresponding to protobuf classes.
-   * @param parquetSpecsCompliant   If set to false, the parquet schema generated will be using the old
-   *                                schema style (prior to PARQUET-968) to provide backward-compatibility
-   *                                but which does not use LIST and MAP wrappers around collections as required
-   *                                by the parquet specifications. If set to true, specs compliant schemas are used.
+   *
+   * @param parquetSpecsCompliant        If set to false, the parquet schema generated will be using the old
+   *                                     schema style (prior to PARQUET-968) to provide backward-compatibility
+   *                                     but which does not use LIST and MAP wrappers around collections as required
+   *                                     by the parquet specifications. If set to true, specs compliant schemas are used.
+   * @param writeKafkaMetadataFields     If set to true, the parquet schema will contain kafkaMetadata fields as contained in
+   * @param namespaceKafkaMetadataFields If set to true, the parquet schema will use namespace kafka metadata under kafka_metadata
+   * @see com.gojek.offset.KafkaNestedOffsetMetadata.KafkaOffsetMetadata class
+   * @see com.gojek.offset.KafkaNestedOffsetMetadata class will be used for storing metadata fields
+   * @see com.gojek.offset.KafkaNestedOffsetMetadata.KafkaOffsetMetadata class will be used for storing metadata fields otherwise
    */
-  public ProtoSchemaConverter(boolean parquetSpecsCompliant) {
+  public ProtoSchemaConverter(boolean parquetSpecsCompliant, boolean writeKafkaMetadataFields, boolean namespaceKafkaMetadataFields) {
     this.parquetSpecsCompliant = parquetSpecsCompliant;
+    this.writeKafkaMetadataFields = writeKafkaMetadataFields;
+    this.namespaceKafkaMetadataFields = namespaceKafkaMetadataFields;
   }
 
   public MessageType convert(Class<? extends Message> protobufClass) {
     LOG.debug("Converting protocol buffer class \"" + protobufClass + "\" to parquet schema.");
     Descriptors.Descriptor descriptor = Protobufs.getMessageDescriptor(protobufClass);
     MessageType messageType =
-        convertFields(Types.buildMessage(), descriptor.getFields())
+      convertFields(Types.buildMessage(), descriptor.getFields())
         .named(descriptor.getFullName());
     LOG.debug("Converter info:\n " + descriptor.toProto() + " was converted to \n" + messageType);
     return messageType;
@@ -79,10 +95,17 @@ public class ProtoSchemaConverter {
 
   public MessageType convert(Descriptors.Descriptor descriptor) {
     LOG.debug("Converting protocol buffer class to parquet schema using descriptors." + descriptor);
-    List<FieldDescriptor> fields = descriptor.getFields().stream()
-                                                         .collect(Collectors.toList());
+    List<FieldDescriptor> fields = new ArrayList<>(descriptor.getFields());
+    GroupBuilder<MessageType> messageTypeGroupBuilder = convertFields(Types.buildMessage(), fields);
+    if (writeKafkaMetadataFields) {
+      if (namespaceKafkaMetadataFields) {
+        messageTypeGroupBuilder = convertFields(messageTypeGroupBuilder, new ArrayList<>(KafkaNestedOffsetMetadata.getDescriptor().getFields()));
+      } else {
+        messageTypeGroupBuilder = convertFields(messageTypeGroupBuilder, new ArrayList<>(KafkaNestedOffsetMetadata.KafkaOffsetMetadata.getDescriptor().getFields()));
+      }
+    }
     MessageType messageType =
-      convertFields(Types.buildMessage(), fields)
+      messageTypeGroupBuilder
         .named(descriptor.getFullName());
     LOG.debug("Converter info:\n " + descriptor.toProto() + " was converted to \n" + messageType);
     return messageType;

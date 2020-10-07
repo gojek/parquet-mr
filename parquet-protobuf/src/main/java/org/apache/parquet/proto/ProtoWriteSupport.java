@@ -18,12 +18,14 @@
  */
 package org.apache.parquet.proto;
 
+import com.gojek.offset.KafkaNestedOffsetMetadata;
 import com.google.protobuf.*;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.twitter.elephantbird.util.Protobufs;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.hadoop.BadConfigurationException;
+import org.apache.parquet.hadoop.OffsetInfo;
 import org.apache.parquet.hadoop.api.WriteSupport;
 import org.apache.parquet.io.InvalidRecordException;
 import org.apache.parquet.io.api.Binary;
@@ -34,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Array;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -60,6 +63,8 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
   public static final String PB_SPECS_COMPLIANT_WRITE = "parquet.proto.writeSpecsCompliant";
 
   private boolean writeSpecsCompliant = false;
+  private final boolean writeKafkaMetadataFields;
+  private final boolean namespaceKafkaMetadataFields;
   private RecordConsumer recordConsumer;
   private ProtoDescriptorSupport protoDescriptorSupport;
   private MessageWriter messageWriter;
@@ -67,17 +72,31 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
   // the number back even with an outdated schema which might not contain all enum values.
   private Map<String, Map<String, Integer>> protoEnumBookKeeper = new HashMap<>();
 
+  private static final long SECONDS_TO_MICROS = 1000000L;
+  private static final int MICROS_TO_NANOS = 1000;
+
+
   public ProtoWriteSupport() {
     Descriptors.Descriptor protoDescriptor = null;
     this.protoDescriptorSupport = new ProtoDescriptorSupport(protoDescriptor);
+    this.namespaceKafkaMetadataFields = false;
+    this.writeKafkaMetadataFields = false;
   }
 
   public ProtoWriteSupport(Class<? extends Message> protobufClass) {
-    this.protoDescriptorSupport = new ProtoDescriptorSupport(protobufClass);
+    this(protobufClass, false, false);
   }
 
-  public ProtoWriteSupport(Descriptors.Descriptor messageDescriptor) {
+  public ProtoWriteSupport(Class<? extends Message> protobufClass, boolean writeKafkaMetadataFields, boolean namespaceKafkaMetadataFields) {
+    this.protoDescriptorSupport = new ProtoDescriptorSupport(protobufClass);
+    this.namespaceKafkaMetadataFields = namespaceKafkaMetadataFields;
+    this.writeKafkaMetadataFields = writeKafkaMetadataFields;
+  }
+
+  public ProtoWriteSupport(Descriptors.Descriptor messageDescriptor, boolean writeKafkaMetadataFields, boolean namespaceKafkaMetadataFields) {
     this.protoDescriptorSupport = new ProtoDescriptorSupport(messageDescriptor);
+    this.namespaceKafkaMetadataFields = namespaceKafkaMetadataFields;
+    this.writeKafkaMetadataFields = writeKafkaMetadataFields;
   }
 
   @Override
@@ -92,8 +111,9 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
   /**
    * Make parquet-protobuf use the LIST and MAP wrappers for collections. Set to false if you need backward
    * compatibility with parquet before PARQUET-968 (1.9.0 and older).
-   * @param configuration           The hadoop configuration
-   * @param writeSpecsCompliant     If set to true, the old schema style will be used (without wrappers).
+   *
+   * @param configuration       The hadoop configuration
+   * @param writeSpecsCompliant If set to true, the old schema style will be used (without wrappers).
    */
   public static void setWriteSpecsCompliant(Configuration configuration, boolean writeSpecsCompliant) {
     configuration.setBoolean(PB_SPECS_COMPLIANT_WRITE, writeSpecsCompliant);
@@ -117,6 +137,45 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
   }
 
   @Override
+  public void write(T record, OffsetInfo offsetInfo, boolean namespaceMetadataFields) {
+    long loadTime = Instant.now().toEpochMilli();
+    KafkaNestedOffsetMetadata.KafkaOffsetMetadata kafkaOffsetMetadata = KafkaNestedOffsetMetadata.KafkaOffsetMetadata.newBuilder()
+      .setLoadTime(Timestamp.newBuilder().setSeconds(getSecondsFromMicros(loadTime)).setNanos(getNanosFromMicros(loadTime)).build())
+      .setMessageTimestamp(Timestamp.newBuilder().setSeconds(getSecondsFromMicros(offsetInfo.getTimestamp())).setNanos(getNanosFromMicros(offsetInfo.getTimestamp())).build())
+      .setMessageOffset(offsetInfo.getOffset())
+      .setMessagePartition(offsetInfo.getPartition())
+      .setMessageTopic(offsetInfo.getTopic())
+      .build();
+
+    recordConsumer.startMessage();
+    try {
+      if (namespaceMetadataFields) {
+        KafkaNestedOffsetMetadata kafkaMetadata = KafkaNestedOffsetMetadata.newBuilder()
+          .setKafkaMetadata(kafkaOffsetMetadata)
+          .build();
+        messageWriter.writeAllFields(kafkaMetadata);
+      } else {
+        messageWriter.writeAllFields(kafkaOffsetMetadata);
+      }
+      messageWriter.writeAllFields(record);
+    } catch (RuntimeException e) {
+      Message m = (record instanceof Message.Builder) ? ((Message.Builder) record).build() : (Message) record;
+      LOG.error("Cannot write message " + e.getMessage() + " : " + m);
+      throw e;
+    }
+    recordConsumer.endMessage();
+  }
+
+  private long getSecondsFromMicros(long micros) {
+    return (micros / SECONDS_TO_MICROS);
+  }
+
+  private int getNanosFromMicros(long micros) {
+    long seconds = getSecondsFromMicros(micros);
+    return (int) (micros - (seconds * SECONDS_TO_MICROS)) * MICROS_TO_NANOS;
+  }
+
+  @Override
   public void prepareForWrite(RecordConsumer recordConsumer) {
     this.recordConsumer = recordConsumer;
   }
@@ -125,10 +184,10 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
   public WriteContext init(Configuration configuration) {
     Descriptor messageDescriptor = protoDescriptorSupport.getMessageDescriptor(configuration);
     writeSpecsCompliant = configuration.getBoolean(PB_SPECS_COMPLIANT_WRITE, writeSpecsCompliant);
-    MessageType rootSchema = new ProtoSchemaConverter(writeSpecsCompliant).convert(messageDescriptor);
+    MessageType rootSchema = new ProtoSchemaConverter(writeSpecsCompliant, writeKafkaMetadataFields, namespaceKafkaMetadataFields).convert(messageDescriptor);
     validatedMapping(messageDescriptor, rootSchema);
 
-    this.messageWriter = new MessageWriter(messageDescriptor, rootSchema);
+    this.messageWriter = new MessageWriter(messageDescriptor, rootSchema, writeKafkaMetadataFields, namespaceKafkaMetadataFields);
 
     Map<String, String> extraMetaData = new HashMap<String, String>();
     extraMetaData.put(ProtoReadSupport.PB_CLASS, createMessageClassName(messageDescriptor));
@@ -206,10 +265,25 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
   class MessageWriter extends FieldWriter {
 
     final FieldWriter[] fieldWriters;
+    private final boolean  writeKafkaMetadataFields;
+    private final boolean namespaceKafkaMetadataFields;
 
     @SuppressWarnings("unchecked")
-    MessageWriter(Descriptor descriptor, GroupType schema) {
+    MessageWriter(Descriptor descriptor, GroupType schema, boolean writeKafkaMetadataFields, boolean namespaceKafkaMetadataFields) {
+      this.writeKafkaMetadataFields = writeKafkaMetadataFields;
+      this.namespaceKafkaMetadataFields = namespaceKafkaMetadataFields;
       List<FieldDescriptor> fields = descriptor.getFields();
+
+      // add metadata fields to the list of fields
+      if (writeKafkaMetadataFields) {
+        if(namespaceKafkaMetadataFields) {
+          fields = Stream.concat(fields.stream(), KafkaNestedOffsetMetadata.getDescriptor().getFields().stream())
+            .collect(Collectors.toList());
+        } else {
+          fields = Stream.concat(fields.stream(), KafkaNestedOffsetMetadata.KafkaOffsetMetadata.getDescriptor().getFields().stream())
+            .collect(Collectors.toList());
+        }
+      }
       fieldWriters = (FieldWriter[]) Array.newInstance(FieldWriter.class, fields.size());
 
       for (FieldDescriptor fieldDescriptor: fields) {
@@ -228,8 +302,40 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
         writer.setFieldName(name);
         writer.setIndex(schema.getFieldIndex(name));
 
-        fieldWriters[fieldDescriptor.getIndex()] = writer;
+        fieldWriters[getIndex(fieldDescriptor, fields)] = writer;
       }
+    }
+
+    private int getIndex(FieldDescriptor field, List<FieldDescriptor> allFields) {
+      if(!writeKafkaMetadataFields) {
+        return field.getIndex();
+      }
+      List<FieldDescriptor> metadataFields = KafkaNestedOffsetMetadata.KafkaOffsetMetadata.getDescriptor().getFields();
+      if(namespaceKafkaMetadataFields) {
+        metadataFields = KafkaNestedOffsetMetadata.getDescriptor().getFields();
+      }
+
+      for(FieldDescriptor metadataFd: metadataFields) {
+        if(field.getNumber() == metadataFd.getNumber()) {
+          return field.getIndex();
+        }
+      }
+
+      int fieldsCount = 0;
+      // find if all metadata fields are in the fields for descriptor
+      for(FieldDescriptor fd: allFields) {
+        for(FieldDescriptor metadataFd: metadataFields) {
+          if(fd.getFullName().equals(metadataFd.getFullName())) {
+            fieldsCount++;
+          }
+        }
+      }
+      // If all metadata fields are not in descriptor fields, its an inner descriptor
+      // and want to add metadata fields only on root level
+      if(fieldsCount != metadataFields.size()) {
+        return field.getIndex();
+      }
+      return field.getIndex() + metadataFields.size();
     }
 
     private boolean isStructType(FieldDescriptor descriptor) {
@@ -272,7 +378,7 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
         return createMapWriter(fieldDescriptor, type);
       }
 
-      return new MessageWriter(fieldDescriptor.getMessageType(), getGroupType(type));
+      return new MessageWriter(fieldDescriptor.getMessageType(), getGroupType(type), false, false);
     }
 
     private GroupType getGroupType(Type type) {
@@ -352,7 +458,7 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
               "Cannot convert Protobuf message with extension field(s)");
           }
 
-          int fieldIndex = fieldDescriptor.getIndex();
+          int fieldIndex = getIndex(fieldDescriptor);
           fieldWriters[fieldIndex].writeField(entry.getValue());
         }
       } else if (Descriptors.FileDescriptor.Syntax.PROTO3.equals(syntax)) {
@@ -362,11 +468,27 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
           if (!fieldDescriptor.isRepeated() && FieldDescriptor.Type.MESSAGE.equals(type) && !pb.hasField(fieldDescriptor)) {
             continue;
           }
-          int fieldIndex = fieldDescriptor.getIndex();
+          int fieldIndex = getIndex(fieldDescriptor);
           FieldWriter fieldWriter = fieldWriters[fieldIndex];
           fieldWriter.writeField(pb.getField(fieldDescriptor));
         }
       }
+    }
+
+    private int getIndex(FieldDescriptor field) {
+      if(!writeKafkaMetadataFields) {
+        return field.getIndex();
+      }
+      List<FieldDescriptor> metadataFields = KafkaNestedOffsetMetadata.KafkaOffsetMetadata.getDescriptor().getFields();
+      if(namespaceKafkaMetadataFields) {
+        metadataFields = KafkaNestedOffsetMetadata.getDescriptor().getFields();
+      }
+      for(FieldDescriptor metadataFd: metadataFields) {
+        if(field.getNumber() == metadataFd.getNumber()) {
+          return field.getIndex();
+        }
+      }
+      return field.getIndex() + metadataFields.size();
     }
   }
 
