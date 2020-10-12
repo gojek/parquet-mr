@@ -142,8 +142,8 @@ class InternalParquetRecordWriter<T> {
     checkBlockSizeReached();
   }
 
-  public void write(T value, OffsetInfo offsetInfo, boolean writeMetadataFields) throws IOException, InterruptedException {
-    writeSupport.write(value, offsetInfo, writeMetadataFields);
+  public void write(T value, OffsetInfo offsetInfo) throws IOException, InterruptedException {
+    writeSupport.write(value, offsetInfo);
     ++ recordCount;
     checkBlockSizeReached();
   }

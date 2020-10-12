@@ -137,7 +137,7 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
   }
 
   @Override
-  public void write(T record, OffsetInfo offsetInfo, boolean namespaceMetadataFields) {
+  public void write(T record, OffsetInfo offsetInfo) {
     long loadTime = Instant.now().toEpochMilli();
     KafkaNestedOffsetMetadata.KafkaOffsetMetadata kafkaOffsetMetadata = KafkaNestedOffsetMetadata.KafkaOffsetMetadata.newBuilder()
       .setLoadTime(Timestamp.newBuilder().setSeconds(getSecondsFromMicros(loadTime)).setNanos(getNanosFromMicros(loadTime)).build())
@@ -149,13 +149,15 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
 
     recordConsumer.startMessage();
     try {
-      if (namespaceMetadataFields) {
-        KafkaNestedOffsetMetadata kafkaMetadata = KafkaNestedOffsetMetadata.newBuilder()
-          .setKafkaMetadata(kafkaOffsetMetadata)
-          .build();
-        messageWriter.writeAllFields(kafkaMetadata);
-      } else {
-        messageWriter.writeAllFields(kafkaOffsetMetadata);
+      if(writeKafkaMetadataFields) {
+        if (namespaceKafkaMetadataFields) {
+          KafkaNestedOffsetMetadata kafkaMetadata = KafkaNestedOffsetMetadata.newBuilder()
+            .setKafkaMetadata(kafkaOffsetMetadata)
+            .build();
+          messageWriter.writeAllFields(kafkaMetadata);
+        } else {
+          messageWriter.writeAllFields(kafkaOffsetMetadata);
+        }
       }
       messageWriter.writeAllFields(record);
     } catch (RuntimeException e) {

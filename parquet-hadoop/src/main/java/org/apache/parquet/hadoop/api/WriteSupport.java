@@ -122,9 +122,8 @@ abstract public class WriteSupport<T> {
    * called once per record
    * @param record one record to write to the previously provided record consumer
    * @param offsetInfo kafka offset information to write for record
-   * @param writeMetadataFields boolean flag indicating whether to write kafka metadata to parquet
    */
-  public void write(T record, OffsetInfo offsetInfo, boolean writeMetadataFields) {
+  public void write(T record, OffsetInfo offsetInfo) {
     
   }
 
