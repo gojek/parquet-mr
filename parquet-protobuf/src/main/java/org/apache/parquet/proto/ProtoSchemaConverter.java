@@ -33,6 +33,7 @@ import org.apache.parquet.schema.Types.GroupBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -51,20 +52,32 @@ public class ProtoSchemaConverter {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProtoSchemaConverter.class);
   private final boolean parquetSpecsCompliant;
+  private final List<FieldDescriptor> kafkaMetadataFields;
 
   public ProtoSchemaConverter() {
     this(false);
   }
 
+  public ProtoSchemaConverter(boolean parquetSpecsCompliant) {
+    this(parquetSpecsCompliant, new ArrayList<>());
+  }
+
   /**
    * Instantiate a schema converter to get the parquet schema corresponding to protobuf classes.
-   * @param parquetSpecsCompliant   If set to false, the parquet schema generated will be using the old
-   *                                schema style (prior to PARQUET-968) to provide backward-compatibility
-   *                                but which does not use LIST and MAP wrappers around collections as required
-   *                                by the parquet specifications. If set to true, specs compliant schemas are used.
+   *
+   * @param parquetSpecsCompliant        If set to false, the parquet schema generated will be using the old
+   *                                     schema style (prior to PARQUET-968) to provide backward-compatibility
+   *                                     but which does not use LIST and MAP wrappers around collections as required
+   *                                     by the parquet specifications. If set to true, specs compliant schemas are used.
+   * @param kafkaMetadataFields          List of kafka metadata fields to add in parquet file, set to empty arraylist
+   *                                     in case there are no metadata fields
+   * @see com.gojek.offset.KafkaNestedOffsetMetadata.KafkaOffsetMetadata class
+   * @see com.gojek.offset.KafkaNestedOffsetMetadata class will be used for storing metadata fields
+   * @see com.gojek.offset.KafkaNestedOffsetMetadata.KafkaOffsetMetadata class will be used for storing metadata fields otherwise
    */
-  public ProtoSchemaConverter(boolean parquetSpecsCompliant) {
+  public ProtoSchemaConverter(boolean parquetSpecsCompliant, List<FieldDescriptor> kafkaMetadataFields) {
     this.parquetSpecsCompliant = parquetSpecsCompliant;
+    this.kafkaMetadataFields = kafkaMetadataFields;
   }
 
   public MessageType convert(Class<? extends Message> protobufClass) {
@@ -79,10 +92,13 @@ public class ProtoSchemaConverter {
 
   public MessageType convert(Descriptors.Descriptor descriptor) {
     LOG.debug("Converting protocol buffer class to parquet schema using descriptors." + descriptor);
-    List<FieldDescriptor> fields = descriptor.getFields().stream()
-                                                         .collect(Collectors.toList());
+    List<FieldDescriptor> fields = new ArrayList<>(descriptor.getFields());
+    GroupBuilder<MessageType> messageTypeGroupBuilder = convertFields(Types.buildMessage(), fields);
+    if (kafkaMetadataFields.size() != 0) {
+      messageTypeGroupBuilder = convertFields(messageTypeGroupBuilder, new ArrayList<>(kafkaMetadataFields));
+    }
     MessageType messageType =
-      convertFields(Types.buildMessage(), fields)
+      messageTypeGroupBuilder
         .named(descriptor.getFullName());
     LOG.debug("Converter info:\n " + descriptor.toProto() + " was converted to \n" + messageType);
     return messageType;
