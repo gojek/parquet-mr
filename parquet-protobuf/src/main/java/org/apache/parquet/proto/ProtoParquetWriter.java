@@ -50,7 +50,7 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
                             CompressionCodecName compressionCodecName, int blockSize,
                             int pageSize) throws IOException {
     super(file, new ProtoWriteSupport(protoMessage),
-            compressionCodecName, blockSize, pageSize);
+      compressionCodecName, blockSize, pageSize);
   }
 
   /**
@@ -69,7 +69,7 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
                             CompressionCodecName compressionCodecName, int blockSize,
                             int pageSize, boolean enableDictionary, boolean validating) throws IOException {
     super(file, new ProtoWriteSupport(protoMessage),
-            compressionCodecName, blockSize, pageSize, enableDictionary, validating);
+      compressionCodecName, blockSize, pageSize, enableDictionary, validating);
   }
 
   /**
@@ -82,7 +82,7 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
    */
   public ProtoParquetWriter(Path file, Class<? extends Message> protoMessage) throws IOException {
     this(file, protoMessage, CompressionCodecName.UNCOMPRESSED,
-            DEFAULT_BLOCK_SIZE, DEFAULT_PAGE_SIZE);
+      DEFAULT_BLOCK_SIZE, DEFAULT_PAGE_SIZE);
   }
 
   /**
@@ -90,8 +90,10 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
    *
    * @param file                 The file name to write to.
    * @param messageDescriptor    Protobuf message descriptor
-   * @param writeKafkaMetadataFields     If set to true, the parquet schema will contain kafkaMetadata fields as contained in
-   * @param kafkaMetadataNamespace If set to true, the parquet schema will use namespace kafka metadata under kafka_metadata
+   * @param writeKafkaMetadataFields If set to true, the parquet schema will contain kafkaMetadata fields as contained in
+   * @param kafkaMetadataNamespace namespace of all kafka metadata fields in parquet, for example, if kafkaMetadataNamespace is kafka_metadata,
+   *                               the metadata will be kafka_metadata.message_timestamp etc,
+   *                               set null to not have any namespace and have all metadata fields on root level
    * @param compressionCodecName Compression code to use, or CompressionCodecName.UNCOMPRESSED
    * @param blockSize            HDFS block size
    * @param pageSize             See parquet write up. Blocks are subdivided into pages for alignment and other purposes.
@@ -101,7 +103,7 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
                             CompressionCodecName compressionCodecName, int blockSize,
                             int pageSize) throws IOException {
     super(file, new ProtoWriteSupport(messageDescriptor, writeKafkaMetadataFields, kafkaMetadataNamespace),
-            compressionCodecName, blockSize, pageSize);
+      compressionCodecName, blockSize, pageSize);
   }
 
   /**
@@ -109,8 +111,10 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
    *
    * @param file                 The file name to write to.
    * @param messageDescriptor    Protobuf message descriptor
-   * @param writeKafkaMetadataFields     If set to true, the parquet schema will contain kafkaMetadata fields as contained in
-   * @param kafkaMetadataNamespace If set to true, the parquet schema will use namespace kafka metadata under kafka_metadata
+   * @param writeKafkaMetadataFields If set to true, the parquet schema will contain kafkaMetadata fields as contained in
+   * @param kafkaMetadataNamespace namespace of all kafka metadata fields in parquet, for example, if kafkaMetadataNamespace is kafka_metadata,
+   *                               the metadata will be kafka_metadata.message_timestamp etc,
+   *                               set null to not have any namespace and have all metadata fields on root level
    * @param compressionCodecName Compression code to use, or CompressionCodecName.UNCOMPRESSED
    * @param blockSize            HDFS block size
    * @param pageSize             See parquet write up. Blocks are subdivided into pages for alignment and other purposes.
@@ -122,7 +126,7 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
                             CompressionCodecName compressionCodecName, int blockSize,
                             int pageSize, boolean enableDictionary, boolean validating) throws IOException {
     super(file, new ProtoWriteSupport(messageDescriptor, writeKafkaMetadataFields, kafkaMetadataNamespace),
-            compressionCodecName, blockSize, pageSize, enableDictionary, validating);
+      compressionCodecName, blockSize, pageSize, enableDictionary, validating);
   }
 
   /**
@@ -135,44 +139,44 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
    */
   public ProtoParquetWriter(Path file, Descriptor messageDescriptor) throws IOException {
     this(file, messageDescriptor, false, null, CompressionCodecName.UNCOMPRESSED,
-            DEFAULT_BLOCK_SIZE, DEFAULT_PAGE_SIZE);
+      DEFAULT_BLOCK_SIZE, DEFAULT_PAGE_SIZE);
   }
 
   public static <T> Builder<T> builder(Path file) {
-	    return new Builder<T>(file);
-	}
+    return new Builder<T>(file);
+  }
 
-	public static <T> Builder<T> builder(OutputFile file) {
-	    return new Builder<T>(file);
-	}
+  public static <T> Builder<T> builder(OutputFile file) {
+    return new Builder<T>(file);
+  }
 
-	private static <T extends MessageOrBuilder> WriteSupport<T> writeSupport(Class<? extends Message> protoMessage) {
-		return new ProtoWriteSupport<T>(protoMessage);
-	}
+  private static <T extends MessageOrBuilder> WriteSupport<T> writeSupport(Class<? extends Message> protoMessage) {
+    return new ProtoWriteSupport<T>(protoMessage);
+  }
 
-	public static class Builder<T> extends ParquetWriter.Builder<T, Builder<T>> {
+  public static class Builder<T> extends ParquetWriter.Builder<T, Builder<T>> {
 
-		Class<? extends Message> protoMessage = null;
+    Class<? extends Message> protoMessage = null;
 
-		private Builder(Path file) {
-			super(file);
-		}
+    private Builder(Path file) {
+      super(file);
+    }
 
-		private Builder(OutputFile file) {
-		    super(file);
-		}
+    private Builder(OutputFile file) {
+      super(file);
+    }
 
-		protected Builder<T> self() {
-		    return this;
-		}
+    protected Builder<T> self() {
+      return this;
+    }
 
-		public Builder<T> withMessage(Class<? extends Message> protoMessage){
-			this.protoMessage = protoMessage;
-			return this;
-		}
+    public Builder<T> withMessage(Class<? extends Message> protoMessage){
+      this.protoMessage = protoMessage;
+      return this;
+    }
 
-		protected WriteSupport<T> getWriteSupport(Configuration conf) {
-		    return (WriteSupport<T>) ProtoParquetWriter.writeSupport(protoMessage);
-		}
-	}
+    protected WriteSupport<T> getWriteSupport(Configuration conf) {
+      return (WriteSupport<T>) ProtoParquetWriter.writeSupport(protoMessage);
+    }
+  }
 }

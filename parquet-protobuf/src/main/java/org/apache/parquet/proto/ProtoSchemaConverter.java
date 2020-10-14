@@ -18,7 +18,6 @@
  */
 package org.apache.parquet.proto;
 
-import com.gojek.offset.KafkaNestedOffsetMetadata;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
@@ -70,8 +69,8 @@ public class ProtoSchemaConverter {
    *                                     schema style (prior to PARQUET-968) to provide backward-compatibility
    *                                     but which does not use LIST and MAP wrappers around collections as required
    *                                     by the parquet specifications. If set to true, specs compliant schemas are used.
-   * @param writeKafkaMetadataFields     If set to true, the parquet schema will contain kafkaMetadata fields as contained in
-   * @param namespaceKafkaMetadataFields If set to true, the parquet schema will use namespace kafka metadata under kafka_metadata
+   * @param kafkaMetadataFields          List of kafka metadata fields to add in parquet file, set to empty arraylist
+   *                                     in case there are no metadata fields
    * @see com.gojek.offset.KafkaNestedOffsetMetadata.KafkaOffsetMetadata class
    * @see com.gojek.offset.KafkaNestedOffsetMetadata class will be used for storing metadata fields
    * @see com.gojek.offset.KafkaNestedOffsetMetadata.KafkaOffsetMetadata class will be used for storing metadata fields otherwise
@@ -85,7 +84,7 @@ public class ProtoSchemaConverter {
     LOG.debug("Converting protocol buffer class \"" + protobufClass + "\" to parquet schema.");
     Descriptors.Descriptor descriptor = Protobufs.getMessageDescriptor(protobufClass);
     MessageType messageType =
-      convertFields(Types.buildMessage(), descriptor.getFields())
+        convertFields(Types.buildMessage(), descriptor.getFields())
         .named(descriptor.getFullName());
     LOG.debug("Converter info:\n " + descriptor.toProto() + " was converted to \n" + messageType);
     return messageType;

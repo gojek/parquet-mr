@@ -20,11 +20,11 @@ package org.apache.parquet.proto;
 
 import com.github.os72.protobuf.dynamic.DynamicSchema;
 import com.github.os72.protobuf.dynamic.MessageDefinition;
-import com.gojek.offset.KafkaNestedOffsetMetadata;
 import com.google.protobuf.*;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.twitter.elephantbird.util.Protobufs;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.hadoop.BadConfigurationException;
 import org.apache.parquet.hadoop.OffsetInfo;
@@ -78,6 +78,13 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
   private static final long SECONDS_TO_MICROS = 1000000L;
   private static final int MICROS_TO_NANOS = 1000;
 
+  private static final String MESSAGE_OFFSET = "message_offset";
+  private static final String MESSAGE_PARTITION = "message_partition";
+  private static final String MESSAGE_TOPIC = "message_topic";
+  private static final String MESSAGE_TIMESTAMP = "message_timestamp";
+  private static final String LOAD_TIME = "load_time";
+  private static final String KAFKA_OFFSET_METADATA = "KafkaOffsetMetadata";
+  private static final String KAFKA_NESTED_OFFSET_METADATA = "KafkaNestedOffsetMetadata";
 
   public ProtoWriteSupport() {
     this((Descriptor) null, false, null);
@@ -144,16 +151,16 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
     try {
       if(writeKafkaMetadataFields) {
         long loadTime = Instant.now().toEpochMilli();
-        Descriptor kafkaMetadataDescriptor = kafkaMetadataProtobufSchema.getMessageDescriptor("KafkaOffsetMetadata");
+        Descriptor kafkaMetadataDescriptor = kafkaMetadataProtobufSchema.getMessageDescriptor(KAFKA_OFFSET_METADATA);
         DynamicMessage metadata = DynamicMessage.newBuilder(kafkaMetadataDescriptor)
-          .setField(kafkaMetadataDescriptor.findFieldByName("load_time"), Timestamp.newBuilder().setSeconds(getSecondsFromMicros(loadTime)).setNanos(getNanosFromMicros(loadTime)).build())
-          .setField(kafkaMetadataDescriptor.findFieldByName("message_timestamp"), Timestamp.newBuilder().setSeconds(getSecondsFromMicros(offsetInfo.getTimestamp())).setNanos(getNanosFromMicros(offsetInfo.getTimestamp())).build())
-          .setField(kafkaMetadataDescriptor.findFieldByName("message_offset"), offsetInfo.getOffset())
-          .setField(kafkaMetadataDescriptor.findFieldByName("message_partition"), offsetInfo.getPartition())
-          .setField(kafkaMetadataDescriptor.findFieldByName("message_topic"), offsetInfo.getTopic())
+          .setField(kafkaMetadataDescriptor.findFieldByName(LOAD_TIME), Timestamp.newBuilder().setSeconds(getSecondsFromMicros(loadTime)).setNanos(getNanosFromMicros(loadTime)).build())
+          .setField(kafkaMetadataDescriptor.findFieldByName(MESSAGE_TIMESTAMP), Timestamp.newBuilder().setSeconds(getSecondsFromMicros(offsetInfo.getTimestamp())).setNanos(getNanosFromMicros(offsetInfo.getTimestamp())).build())
+          .setField(kafkaMetadataDescriptor.findFieldByName(MESSAGE_OFFSET), offsetInfo.getOffset())
+          .setField(kafkaMetadataDescriptor.findFieldByName(MESSAGE_PARTITION), offsetInfo.getPartition())
+          .setField(kafkaMetadataDescriptor.findFieldByName(MESSAGE_TOPIC), offsetInfo.getTopic())
           .build();
-        if(kafkaMetadataNamespace != null) {
-          Descriptor namespacedKafkaMetadataDescriptor = kafkaMetadataProtobufSchema.getMessageDescriptor("KafkaNestedOffsetMetadata");
+        if(!StringUtils.isEmpty(kafkaMetadataNamespace)) {
+          Descriptor namespacedKafkaMetadataDescriptor = kafkaMetadataProtobufSchema.getMessageDescriptor(KAFKA_NESTED_OFFSET_METADATA);
           metadata = DynamicMessage.newBuilder(namespacedKafkaMetadataDescriptor)
             .setField(namespacedKafkaMetadataDescriptor.findFieldByName(kafkaMetadataNamespace), metadata)
             .build();
@@ -174,38 +181,36 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
       return new ArrayList<>();
     }
 
-    String descriptorName = "KafkaOffsetMetadata";
-    if(kafkaMetadataNamespace != null) {
-      descriptorName = "KafkaNestedOffsetMetadata";
+    String descriptorName = KAFKA_OFFSET_METADATA;
+    if(!StringUtils.isEmpty(kafkaMetadataNamespace)) {
+      descriptorName = KAFKA_NESTED_OFFSET_METADATA;
     }
     return kafkaMetadataProtobufSchema.getMessageDescriptor(descriptorName).getFields();
   }
 
   private DynamicSchema getKafkaMetadataSchema() {
-    DynamicSchema.Builder schemaBuilder = DynamicSchema.newBuilder().setName("KafkaNestedOffsetMetadata.proto").setPackage("google.protobuf");
+    DynamicSchema.Builder schemaBuilder = DynamicSchema.newBuilder().setName("Metadata.proto").setPackage("google.protobuf");
     MessageDefinition timestampDef = MessageDefinition.newBuilder("Timestamp")
       .addField("optional", "int64", "seconds", 1)
       .addField("optional", "int32", "nanos", 2)
       .build();
     schemaBuilder.addMessageDefinition(timestampDef);
-    MessageDefinition msgDef = MessageDefinition.newBuilder("KafkaOffsetMetadata")
-      .addField("optional", "int64", "message_offset", 536870907)
-      .addField("optional", "int32", "message_partition", 536870908)
-      .addField("optional", "string", "message_topic", 536870909)
-      .addField("optional", "Timestamp", "message_timestamp", 536870910)
-      .addField("optional", "Timestamp", "load_time", 536870911)
+
+    MessageDefinition msgDef = MessageDefinition.newBuilder(KAFKA_OFFSET_METADATA)
+      .addField("optional", "int64", MESSAGE_OFFSET, 536870907)
+      .addField("optional", "int32", MESSAGE_PARTITION, 536870908)
+      .addField("optional", "string", MESSAGE_TOPIC, 536870909)
+      .addField("optional", "Timestamp", MESSAGE_TIMESTAMP, 536870910)
+      .addField("optional", "Timestamp", LOAD_TIME, 536870911)
       .build();
     schemaBuilder.addMessageDefinition(msgDef);
-    String descriptorName = "KafkaOffsetMetadata";
-    if(kafkaMetadataNamespace != null) {
-      MessageDefinition nestedDef = MessageDefinition.newBuilder("KafkaNestedOffsetMetadata")
+
+    if(!StringUtils.isEmpty(kafkaMetadataNamespace)) {
+      MessageDefinition nestedDef = MessageDefinition.newBuilder(KAFKA_NESTED_OFFSET_METADATA)
         .addMessageDefinition(msgDef)
-        .addField("optional", "KafkaOffsetMetadata", kafkaMetadataNamespace,536870906 )
+        .addField("optional", KAFKA_OFFSET_METADATA, kafkaMetadataNamespace, 536870911)
         .build();
       schemaBuilder.addMessageDefinition(nestedDef);
-      descriptorName = "KafkaNestedOffsetMetadata";
-    } else {
-      schemaBuilder.addMessageDefinition(msgDef);
     }
 
     DynamicSchema schema = null;
@@ -294,12 +299,12 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
     }
 
     /** sets index of field inside parquet message.*/
-    void setIndex(int index) {
+     void setIndex(int index) {
       this.index = index;
     }
 
     /** Used for writing repeated fields*/
-    void writeRawValue(Object value) {
+     void writeRawValue(Object value) {
 
     }
 
@@ -343,36 +348,9 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
         writer.setFieldName(name);
         writer.setIndex(schema.getFieldIndex(name));
 
-        fieldWriters[getIndex(fieldDescriptor, fields, kafkaMetadataFields)] = writer;
+        fieldWriters[getIndex(fieldDescriptor, kafkaMetadataFields)] = writer;
       }
     }
-
-    private int getIndex(FieldDescriptor field, List<FieldDescriptor> allFields, List<FieldDescriptor> metadataFields) {
-      if(metadataFields.size() == 0) {
-        return field.getIndex();
-      }
-      int fieldsCount = 0;
-      for(FieldDescriptor metadataFd: metadataFields) {
-        if(field.getNumber() == metadataFd.getNumber()) {
-          return field.getIndex();
-        }
-      }
-      // find if all metadata fields are in the fields for descriptor
-      for(FieldDescriptor fd: allFields) {
-        for(FieldDescriptor metadataFd: metadataFields) {
-          if(fd.getFullName().equals(metadataFd.getFullName())) {
-            fieldsCount++;
-          }
-        }
-      }
-      // If all metadata fields are not in descriptor fields, its an inner descriptor
-      // and want to add metadata fields only on root level
-      if(fieldsCount != metadataFields.size()) {
-        return field.getIndex();
-      }
-      return field.getIndex() + metadataFields.size();
-    }
-
 
     private int getIndex(FieldDescriptor field, List<FieldDescriptor> kafkaMetadataFields) {
       if(kafkaMetadataFields.size() == 0) {
@@ -749,7 +727,7 @@ public class ProtoWriteSupport<T extends MessageOrBuilder> extends WriteSupport<
 
   private FieldWriter unknownType(FieldDescriptor fieldDescriptor) {
     String exceptionMsg = "Unknown type with descriptor \"" + fieldDescriptor
-      + "\" and type \"" + fieldDescriptor.getJavaType() + "\".";
+        + "\" and type \"" + fieldDescriptor.getJavaType() + "\".";
     throw new InvalidRecordException(exceptionMsg);
   }
 
