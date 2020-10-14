@@ -91,16 +91,16 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
    * @param file                 The file name to write to.
    * @param messageDescriptor    Protobuf message descriptor
    * @param writeKafkaMetadataFields     If set to true, the parquet schema will contain kafkaMetadata fields as contained in
-   * @param namespaceKafkaMetadataFields If set to true, the parquet schema will use namespace kafka metadata under kafka_metadata
+   * @param kafkaMetadataNamespace If set to true, the parquet schema will use namespace kafka metadata under kafka_metadata
    * @param compressionCodecName Compression code to use, or CompressionCodecName.UNCOMPRESSED
    * @param blockSize            HDFS block size
    * @param pageSize             See parquet write up. Blocks are subdivided into pages for alignment and other purposes.
    * @throws IOException if there is an error while writing
    */
-  public ProtoParquetWriter(Path file, Descriptor messageDescriptor, boolean writeKafkaMetadataFields, boolean namespaceKafkaMetadataFields,
+  public ProtoParquetWriter(Path file, Descriptor messageDescriptor, boolean writeKafkaMetadataFields, String kafkaMetadataNamespace,
                             CompressionCodecName compressionCodecName, int blockSize,
                             int pageSize) throws IOException {
-    super(file, new ProtoWriteSupport(messageDescriptor, writeKafkaMetadataFields, namespaceKafkaMetadataFields),
+    super(file, new ProtoWriteSupport(messageDescriptor, writeKafkaMetadataFields, kafkaMetadataNamespace),
             compressionCodecName, blockSize, pageSize);
   }
 
@@ -110,7 +110,7 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
    * @param file                 The file name to write to.
    * @param messageDescriptor    Protobuf message descriptor
    * @param writeKafkaMetadataFields     If set to true, the parquet schema will contain kafkaMetadata fields as contained in
-   * @param namespaceKafkaMetadataFields If set to true, the parquet schema will use namespace kafka metadata under kafka_metadata
+   * @param kafkaMetadataNamespace If set to true, the parquet schema will use namespace kafka metadata under kafka_metadata
    * @param compressionCodecName Compression code to use, or CompressionCodecName.UNCOMPRESSED
    * @param blockSize            HDFS block size
    * @param pageSize             See parquet write up. Blocks are subdivided into pages for alignment and other purposes.
@@ -118,10 +118,10 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
    * @param validating           to turn on validation using the schema
    * @throws IOException if there is an error while writing
    */
-  public ProtoParquetWriter(Path file, Descriptor messageDescriptor, boolean writeKafkaMetadataFields, boolean namespaceKafkaMetadataFields,
+  public ProtoParquetWriter(Path file, Descriptor messageDescriptor, boolean writeKafkaMetadataFields, String kafkaMetadataNamespace,
                             CompressionCodecName compressionCodecName, int blockSize,
                             int pageSize, boolean enableDictionary, boolean validating) throws IOException {
-    super(file, new ProtoWriteSupport(messageDescriptor, writeKafkaMetadataFields, namespaceKafkaMetadataFields),
+    super(file, new ProtoWriteSupport(messageDescriptor, writeKafkaMetadataFields, kafkaMetadataNamespace),
             compressionCodecName, blockSize, pageSize, enableDictionary, validating);
   }
 
@@ -134,7 +134,7 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
    * @throws IOException if there is an error while writing
    */
   public ProtoParquetWriter(Path file, Descriptor messageDescriptor) throws IOException {
-    this(file, messageDescriptor, false, false, CompressionCodecName.UNCOMPRESSED,
+    this(file, messageDescriptor, false, null, CompressionCodecName.UNCOMPRESSED,
             DEFAULT_BLOCK_SIZE, DEFAULT_PAGE_SIZE);
   }
 

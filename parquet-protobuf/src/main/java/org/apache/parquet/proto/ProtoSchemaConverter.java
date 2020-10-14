@@ -53,15 +53,14 @@ public class ProtoSchemaConverter {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProtoSchemaConverter.class);
   private final boolean parquetSpecsCompliant;
-  private final boolean writeKafkaMetadataFields;
-  private final boolean namespaceKafkaMetadataFields;
+  private final List<FieldDescriptor> kafkaMetadataFields;
 
   public ProtoSchemaConverter() {
     this(false);
   }
 
   public ProtoSchemaConverter(boolean parquetSpecsCompliant) {
-    this(parquetSpecsCompliant, false, false);
+    this(parquetSpecsCompliant, new ArrayList<>());
   }
 
   /**
@@ -77,10 +76,9 @@ public class ProtoSchemaConverter {
    * @see com.gojek.offset.KafkaNestedOffsetMetadata class will be used for storing metadata fields
    * @see com.gojek.offset.KafkaNestedOffsetMetadata.KafkaOffsetMetadata class will be used for storing metadata fields otherwise
    */
-  public ProtoSchemaConverter(boolean parquetSpecsCompliant, boolean writeKafkaMetadataFields, boolean namespaceKafkaMetadataFields) {
+  public ProtoSchemaConverter(boolean parquetSpecsCompliant, List<FieldDescriptor> kafkaMetadataFields) {
     this.parquetSpecsCompliant = parquetSpecsCompliant;
-    this.writeKafkaMetadataFields = writeKafkaMetadataFields;
-    this.namespaceKafkaMetadataFields = namespaceKafkaMetadataFields;
+    this.kafkaMetadataFields = kafkaMetadataFields;
   }
 
   public MessageType convert(Class<? extends Message> protobufClass) {
@@ -97,12 +95,8 @@ public class ProtoSchemaConverter {
     LOG.debug("Converting protocol buffer class to parquet schema using descriptors." + descriptor);
     List<FieldDescriptor> fields = new ArrayList<>(descriptor.getFields());
     GroupBuilder<MessageType> messageTypeGroupBuilder = convertFields(Types.buildMessage(), fields);
-    if (writeKafkaMetadataFields) {
-      if (namespaceKafkaMetadataFields) {
-        messageTypeGroupBuilder = convertFields(messageTypeGroupBuilder, new ArrayList<>(KafkaNestedOffsetMetadata.getDescriptor().getFields()));
-      } else {
-        messageTypeGroupBuilder = convertFields(messageTypeGroupBuilder, new ArrayList<>(KafkaNestedOffsetMetadata.KafkaOffsetMetadata.getDescriptor().getFields()));
-      }
+    if (kafkaMetadataFields.size() != 0) {
+      messageTypeGroupBuilder = convertFields(messageTypeGroupBuilder, new ArrayList<>(kafkaMetadataFields));
     }
     MessageType messageType =
       messageTypeGroupBuilder
