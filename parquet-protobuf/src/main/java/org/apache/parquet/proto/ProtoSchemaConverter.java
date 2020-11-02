@@ -52,7 +52,7 @@ public class ProtoSchemaConverter {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProtoSchemaConverter.class);
   private final boolean parquetSpecsCompliant;
-  private final List<FieldDescriptor> kafkaMetadataFields;
+  private final List<FieldDescriptor> additionalFields;
 
   public ProtoSchemaConverter() {
     this(false);
@@ -68,11 +68,11 @@ public class ProtoSchemaConverter {
    *                                schema style (prior to PARQUET-968) to provide backward-compatibility
    *                                but which does not use LIST and MAP wrappers around collections as required
    *                                by the parquet specifications. If set to true, specs compliant schemas are used.
-   * @param kafkaMetadataFields     Kafka metadata fields to be serialized in parquet
+   * @param additionalFields        additional fields to be serialized in parquet
    */
-  public ProtoSchemaConverter(boolean parquetSpecsCompliant, List<FieldDescriptor> kafkaMetadataFields) {
+  public ProtoSchemaConverter(boolean parquetSpecsCompliant, List<FieldDescriptor> additionalFields) {
     this.parquetSpecsCompliant = parquetSpecsCompliant;
-    this.kafkaMetadataFields = kafkaMetadataFields;
+    this.additionalFields = additionalFields;
   }
 
   public MessageType convert(Class<? extends Message> protobufClass) {
@@ -89,8 +89,8 @@ public class ProtoSchemaConverter {
     LOG.debug("Converting protocol buffer class to parquet schema using descriptors." + descriptor);
     List<FieldDescriptor> fields = new ArrayList<>(descriptor.getFields());
     GroupBuilder<MessageType> messageTypeGroupBuilder = convertFields(Types.buildMessage(), fields);
-    if (kafkaMetadataFields.size() != 0) {
-      messageTypeGroupBuilder = convertFields(messageTypeGroupBuilder, new ArrayList<>(kafkaMetadataFields));
+    if (additionalFields.size() != 0) {
+      messageTypeGroupBuilder = convertFields(messageTypeGroupBuilder, new ArrayList<>(additionalFields));
     }
     MessageType messageType =
       messageTypeGroupBuilder

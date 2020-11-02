@@ -127,14 +127,14 @@ public class ProtoParquetWriter<T extends MessageOrBuilder> extends ParquetWrite
    *
    * @param file                 The file name to write to.
    * @param messageDescriptor    Protobuf message descriptor
-   * @param kafkaMetadataFields  Kafka metadata descriptor fields to be serialized
+   * @param additionalFields     additional field descriptors to serialize to parquet
    * @param compressionCodecName Compression code to use, or CompressionCodecName.UNCOMPRESSED
    * @param blockSize            HDFS block size
    * @param pageSize             See parquet write up. Blocks are subdivided into pages for alignment and other purposes.
    * @throws IOException if there is an error while writing
    */
-  public ProtoParquetWriter(Path file, Descriptor messageDescriptor, List<Descriptors.FieldDescriptor> kafkaMetadataFields, CompressionCodecName compressionCodecName, int blockSize, int pageSize) throws IOException {
-    super(file, new ProtoWriteSupport(messageDescriptor, kafkaMetadataFields),
+  public ProtoParquetWriter(Path file, Descriptor messageDescriptor, List<Descriptors.FieldDescriptor> additionalFields, CompressionCodecName compressionCodecName, int blockSize, int pageSize) throws IOException {
+    super(file, new ProtoWriteSupport(messageDescriptor, additionalFields),
       compressionCodecName, blockSize, pageSize);
   }
 

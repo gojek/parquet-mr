@@ -63,7 +63,7 @@ public class ProtoWriteSupport<T> extends WriteSupport<T> {
   private RecordConsumer recordConsumer;
   private ProtoDescriptorSupport protoDescriptorSupport;
   private MessageWriter messageWriter;
-  private final List<FieldDescriptor> kafkaMetadataFields;
+  private final List<FieldDescriptor> additionalFields;
   // Keep protobuf enum value with number in the metadata, so that in read time, a reader can read at least
   // the number back even with an outdated schema which might not contain all enum values.
   private Map<String, Map<String, Integer>> protoEnumBookKeeper = new HashMap<>();
@@ -71,18 +71,18 @@ public class ProtoWriteSupport<T> extends WriteSupport<T> {
   public ProtoWriteSupport() {
     Descriptors.Descriptor protoDescriptor = null;
     this.protoDescriptorSupport = new ProtoDescriptorSupport(protoDescriptor);
-    this.kafkaMetadataFields = new ArrayList<>();
+    this.additionalFields = new ArrayList<>();
   }
 
   public ProtoWriteSupport(Class<? extends Message> protobufClass) {
     this.protoDescriptorSupport = new ProtoDescriptorSupport(protobufClass);
-    this.kafkaMetadataFields = new ArrayList<>();
+    this.additionalFields = new ArrayList<>();
   }
 
 
-  public ProtoWriteSupport(Descriptors.Descriptor messageDescriptor, List<FieldDescriptor> kafkaMetadataFields) {
+  public ProtoWriteSupport(Descriptors.Descriptor messageDescriptor, List<FieldDescriptor> additionalFields) {
     this.protoDescriptorSupport = new ProtoDescriptorSupport(messageDescriptor);
-    this.kafkaMetadataFields = kafkaMetadataFields;
+    this.additionalFields = additionalFields;
   }
 
   public ProtoWriteSupport(Descriptors.Descriptor messageDescriptor) {
@@ -147,10 +147,10 @@ public class ProtoWriteSupport<T> extends WriteSupport<T> {
   public WriteContext init(Configuration configuration) {
     Descriptor messageDescriptor = protoDescriptorSupport.getMessageDescriptor(configuration);
     writeSpecsCompliant = configuration.getBoolean(PB_SPECS_COMPLIANT_WRITE, writeSpecsCompliant);
-    MessageType rootSchema = new ProtoSchemaConverter(writeSpecsCompliant, kafkaMetadataFields).convert(messageDescriptor);
+    MessageType rootSchema = new ProtoSchemaConverter(writeSpecsCompliant, additionalFields).convert(messageDescriptor);
     validatedMapping(messageDescriptor, rootSchema);
 
-    this.messageWriter = new MessageWriter(messageDescriptor, rootSchema, kafkaMetadataFields);
+    this.messageWriter = new MessageWriter(messageDescriptor, rootSchema, additionalFields);
 
     Map<String, String> extraMetaData = new HashMap<String, String>();
     extraMetaData.put(ProtoReadSupport.PB_CLASS, createMessageClassName(messageDescriptor));
@@ -228,12 +228,12 @@ public class ProtoWriteSupport<T> extends WriteSupport<T> {
   class MessageWriter extends FieldWriter {
 
     final FieldWriter[] fieldWriters;
-    final List<FieldDescriptor> msgWriterKafkaMetadataFields;
+    final List<FieldDescriptor> msgWriterAdditionalFields;
 
     @SuppressWarnings("unchecked")
-    MessageWriter(Descriptor descriptor, GroupType schema, List<FieldDescriptor> kafkaMetadataFields) {
-      this.msgWriterKafkaMetadataFields = kafkaMetadataFields;
-      List<FieldDescriptor> fields = Stream.concat(descriptor.getFields().stream(), kafkaMetadataFields.stream())
+    MessageWriter(Descriptor descriptor, GroupType schema, List<FieldDescriptor> additionalFields) {
+      this.msgWriterAdditionalFields = additionalFields;
+      List<FieldDescriptor> fields = Stream.concat(descriptor.getFields().stream(), additionalFields.stream())
         .collect(Collectors.toList());
       fieldWriters = (FieldWriter[]) Array.newInstance(FieldWriter.class, fields.size());
 
@@ -258,15 +258,15 @@ public class ProtoWriteSupport<T> extends WriteSupport<T> {
     }
 
     private int getIndex(FieldDescriptor field) {
-      if(msgWriterKafkaMetadataFields.size() == 0) {
+      if(msgWriterAdditionalFields.size() == 0) {
         return field.getIndex();
       }
-      for(FieldDescriptor metadataFd: msgWriterKafkaMetadataFields) {
+      for(FieldDescriptor metadataFd: msgWriterAdditionalFields) {
         if(field.getNumber() == metadataFd.getNumber()) {
           return field.getIndex();
         }
       }
-      return field.getIndex() + msgWriterKafkaMetadataFields.size();
+      return field.getIndex() + msgWriterAdditionalFields.size();
     }
 
     private boolean isStructType(FieldDescriptor descriptor) {
