@@ -21,7 +21,7 @@
     <groupId>com.gojek.parquet</groupId>
     <artifactId>parquet</artifactId>
     <relativePath>../pom.xml</relativePath>
-    <version>1.11.4</version>
+    <version>1.11.6</version>
   </parent>
 
   <modelVersion>4.0.0</modelVersion>
@@ -46,13 +46,13 @@
       <url>https://scala-tools.org/repo-releases</url>
     </pluginRepository>
   </pluginRepositories>
-    
+
   <dependencies>
     <dependency>
       <groupId>com.gojek.parquet</groupId>
       <artifactId>parquet-column</artifactId>
       <version>${project.version}</version>
-    </dependency>  
+    </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
