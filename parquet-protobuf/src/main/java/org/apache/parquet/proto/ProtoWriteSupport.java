@@ -507,6 +507,10 @@ public class ProtoWriteSupport<T> extends WriteSupport<T> {
     @Override
     final void writeRawValue(Object entry) {
       List<Object> timeFields = ((MessageOrBuilder) entry).getAllFields().values().stream().collect(Collectors.toList());
+      if(timeFields.size() == 0) {
+        recordConsumer.addLong(0L);
+        return;
+      }
       long eventTimestampMillis = (((Long) timeFields.get(0)) * 1000);
       if(timeFields.size() > 1) {
         eventTimestampMillis += (((Integer)(timeFields.get(1))) / 1000000);
