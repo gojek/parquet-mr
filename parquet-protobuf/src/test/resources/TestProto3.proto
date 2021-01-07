@@ -23,6 +23,7 @@ package TestProto3;
 
 option java_package = "org.apache.parquet.proto.test";
 
+import "google/protobuf/timestamp.proto";
 // original Dremel paper structures: Original paper used groups, not internal
 // messages but groups were deprecated.
 
@@ -30,6 +31,10 @@ message Document {
     int64 DocId = 1;
     Links links = 32;
     repeated Name Name = 24;
+}
+
+message Audit {
+    google.protobuf.Timestamp timestamp = 1;
 }
 
 message Name {

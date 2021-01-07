@@ -506,15 +506,13 @@ public class ProtoWriteSupport<T> extends WriteSupport<T> {
   class TimestampWriter extends FieldWriter {
     @Override
     final void writeRawValue(Object entry) {
-      List<Object> timeFields = ((MessageOrBuilder) entry).getAllFields().values().stream().collect(Collectors.toList());
-      if(timeFields.size() == 0) {
-        recordConsumer.addLong(0L);
-        return;
+      final Timestamp timestamp;
+      try {
+        timestamp = Timestamp.parseFrom(((AbstractMessage) entry).toByteString());
+      } catch (InvalidProtocolBufferException e) {
+        throw new RuntimeException(e);
       }
-      long eventTimestampMillis = (((Long) timeFields.get(0)) * 1000);
-      if(timeFields.size() > 1) {
-        eventTimestampMillis += (((Integer)(timeFields.get(1))) / 1000000);
-      }
+      long eventTimestampMillis = timestamp.getSeconds() * 1000 + timestamp.getNanos()/1000000;
       recordConsumer.addLong(eventTimestampMillis);
     }
   }
