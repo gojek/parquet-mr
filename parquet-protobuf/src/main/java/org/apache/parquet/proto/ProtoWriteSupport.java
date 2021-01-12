@@ -504,15 +504,17 @@ public class ProtoWriteSupport<T> extends WriteSupport<T> {
   * Custom Writer to write Timestamp field as a single long value depicting time in epoch milliseconds
   */
   class TimestampWriter extends FieldWriter {
+    Descriptors.FieldDescriptor secondFD, nanosFD;
+    TimestampWriter() {
+      secondFD = com.google.protobuf.Timestamp.getDescriptor().findFieldByNumber(1);
+      nanosFD = com.google.protobuf.Timestamp.getDescriptor().findFieldByNumber(2);
+    }
     @Override
     final void writeRawValue(Object entry) {
-      final Timestamp timestamp;
-      try {
-        timestamp = Timestamp.parseFrom(((AbstractMessage) entry).toByteString());
-      } catch (InvalidProtocolBufferException e) {
-        throw new RuntimeException(e);
-      }
-      long eventTimestampMillis = timestamp.getSeconds() * 1000 + timestamp.getNanos()/1000000;
+      MessageOrBuilder message = ((MessageOrBuilder) entry);
+      long seconds = (long) message.getField(secondFD);
+      int nanos = (int) message.getField(nanosFD);
+      long eventTimestampMillis = seconds * 1000 + nanos/1000000;
       recordConsumer.addLong(eventTimestampMillis);
     }
   }
