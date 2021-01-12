@@ -19,6 +19,7 @@
 package org.apache.parquet.proto;
 
 import com.google.protobuf.Message;
+import com.google.protobuf.Timestamp;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
@@ -63,6 +64,92 @@ public class ProtoWriteSupportTest {
     inOrder.verify(readConsumerMock).addBinary(Binary.fromString("oneValue"));
     inOrder.verify(readConsumerMock).endField("one", 0);
 
+    inOrder.verify(readConsumerMock).endMessage();
+    Mockito.verifyNoMoreInteractions(readConsumerMock);
+  }
+
+  @Test
+  public void testMessageWithTimeStampWriterWithSecondsAndNanos() throws Exception {
+    RecordConsumer readConsumerMock =  Mockito.mock(RecordConsumer.class);
+    ProtoWriteSupport instance = createReadConsumerInstance(TestProto3.Audit.class, readConsumerMock);
+
+    final TestProto3.Audit.Builder msg = TestProto3.Audit.newBuilder();
+    final Timestamp.Builder timestamp = Timestamp.newBuilder();
+    timestamp.setSeconds(1610014938);
+    timestamp.setNanos(1000000);
+    msg.setTimestamp(timestamp);
+
+    instance.write(msg.build());
+
+    InOrder inOrder = Mockito.inOrder(readConsumerMock);
+
+    inOrder.verify(readConsumerMock).startMessage();
+    inOrder.verify(readConsumerMock).startField("timestamp", 0);
+    inOrder.verify(readConsumerMock).addLong(1610014938001l);
+    inOrder.verify(readConsumerMock).endField("timestamp", 0);
+    inOrder.verify(readConsumerMock).endMessage();
+    Mockito.verifyNoMoreInteractions(readConsumerMock);
+  }
+
+  @Test
+  public void testMessageWithTimeStampWriterWithJustSeconds() throws Exception {
+    RecordConsumer readConsumerMock =  Mockito.mock(RecordConsumer.class);
+    ProtoWriteSupport instance = createReadConsumerInstance(TestProto3.Audit.class, readConsumerMock);
+
+    final TestProto3.Audit.Builder msg = TestProto3.Audit.newBuilder();
+    final Timestamp.Builder timestamp = Timestamp.newBuilder();
+    timestamp.setSeconds(1610014938);
+    msg.setTimestamp(timestamp);
+
+    instance.write(msg.build());
+
+    InOrder inOrder = Mockito.inOrder(readConsumerMock);
+
+    inOrder.verify(readConsumerMock).startMessage();
+    inOrder.verify(readConsumerMock).startField("timestamp", 0);
+    inOrder.verify(readConsumerMock).addLong(1610014938000l);
+    inOrder.verify(readConsumerMock).endField("timestamp", 0);
+    inOrder.verify(readConsumerMock).endMessage();
+    Mockito.verifyNoMoreInteractions(readConsumerMock);
+  }
+
+  @Test
+  public void testMessageWithTimeStampWriterWithNoTimestampSet() throws Exception {
+    RecordConsumer readConsumerMock =  Mockito.mock(RecordConsumer.class);
+    ProtoWriteSupport instance = createReadConsumerInstance(TestProto3.Audit.class, readConsumerMock);
+
+    final TestProto3.Audit.Builder msg = TestProto3.Audit.newBuilder();
+    msg.setTimestamp(Timestamp.newBuilder().build());
+    instance.write(msg);
+
+    InOrder inOrder = Mockito.inOrder(readConsumerMock);
+
+    inOrder.verify(readConsumerMock).startMessage();
+    inOrder.verify(readConsumerMock).startField("timestamp", 0);
+    inOrder.verify(readConsumerMock).addLong(0l);
+    inOrder.verify(readConsumerMock).endField("timestamp", 0);
+    inOrder.verify(readConsumerMock).endMessage();
+    Mockito.verifyNoMoreInteractions(readConsumerMock);
+  }
+
+  @Test
+  public void testMessageWithTimeStampWriterWithJustNanos() throws Exception {
+    RecordConsumer readConsumerMock =  Mockito.mock(RecordConsumer.class);
+    ProtoWriteSupport instance = createReadConsumerInstance(TestProto3.Audit.class, readConsumerMock);
+
+    final TestProto3.Audit.Builder msg = TestProto3.Audit.newBuilder();
+    final Timestamp.Builder timestamp = Timestamp.newBuilder();
+    timestamp.setNanos(1000);
+    msg.setTimestamp(timestamp);
+
+    instance.write(msg.build());
+
+    InOrder inOrder = Mockito.inOrder(readConsumerMock);
+
+    inOrder.verify(readConsumerMock).startMessage();
+    inOrder.verify(readConsumerMock).startField("timestamp", 0);
+    inOrder.verify(readConsumerMock).addLong(0l);
+    inOrder.verify(readConsumerMock).endField("timestamp", 0);
     inOrder.verify(readConsumerMock).endMessage();
     Mockito.verifyNoMoreInteractions(readConsumerMock);
   }

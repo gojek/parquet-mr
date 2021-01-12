@@ -9,7 +9,7 @@
 
   <groupId>com.gojek.parquet</groupId>
   <artifactId>parquet</artifactId>
-  <version>1.11.7</version>
+  <version>1.11.8</version>
   <packaging>pom</packaging>
 
   <name>Apache Parquet MR</name>
@@ -20,7 +20,7 @@
     <connection>scm:git:git@github.com:gojek/parquet-mr.git</connection>
     <url>scm:git:git@github.com:gojek/parquet-mr.git</url>
     <developerConnection>scm:git:git@github.com:gojek/parquet-mr.git</developerConnection>
-    <tag>apache-parquet-1.11.7-rc1</tag>
+    <tag>apache-parquet-1.11.8-rc1</tag>
   </scm>
 
   <licenses>
@@ -92,7 +92,7 @@
     <previous.version>1.11.0</previous.version>
     <thrift.executable>thrift</thrift.executable>
     <format.thrift.executable>thrift</format.thrift.executable>
-    <scala.version>2.12.8</scala.version>
+    <scala.version>2.12.12</scala.version>
     <!-- scala.binary.version is used for projects that fetch dependencies that are in scala -->
     <scala.binary.version>2.12</scala.binary.version>
     <scala.maven.test.skip>false</scala.maven.test.skip>
