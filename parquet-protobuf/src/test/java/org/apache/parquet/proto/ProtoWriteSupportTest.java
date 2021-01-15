@@ -18,6 +18,7 @@
  */
 package org.apache.parquet.proto;
 
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
 import org.apache.hadoop.conf.Configuration;
@@ -64,6 +65,31 @@ public class ProtoWriteSupportTest {
     inOrder.verify(readConsumerMock).addBinary(Binary.fromString("oneValue"));
     inOrder.verify(readConsumerMock).endField("one", 0);
 
+    inOrder.verify(readConsumerMock).endMessage();
+    Mockito.verifyNoMoreInteractions(readConsumerMock);
+  }
+
+  @Test
+  public void testMessageWithTimeStampWriterForDynamicMessages() throws Exception {
+    RecordConsumer readConsumerMock =  Mockito.mock(RecordConsumer.class);
+    ProtoWriteSupport instance = createReadConsumerInstance(TestProto3.Audit.class, readConsumerMock);
+
+    final TestProto3.Audit.Builder msg = TestProto3.Audit.newBuilder();
+    final Timestamp.Builder timestamp = Timestamp.newBuilder();
+    timestamp.setSeconds(1610014938);
+    timestamp.setNanos(1000000);
+    msg.setTimestamp(timestamp);
+
+    final TestProto3.Audit auditMsg = msg.build();
+    final DynamicMessage dynamicAuditMessage = DynamicMessage.parseFrom(TestProto3.Audit.getDescriptor(), auditMsg.toByteArray());
+    instance.write(dynamicAuditMessage);
+
+    InOrder inOrder = Mockito.inOrder(readConsumerMock);
+
+    inOrder.verify(readConsumerMock).startMessage();
+    inOrder.verify(readConsumerMock).startField("timestamp", 0);
+    inOrder.verify(readConsumerMock).addLong(1610014938001l);
+    inOrder.verify(readConsumerMock).endField("timestamp", 0);
     inOrder.verify(readConsumerMock).endMessage();
     Mockito.verifyNoMoreInteractions(readConsumerMock);
   }
