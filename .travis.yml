@@ -29,4 +29,4 @@ deploy:
 
 after_deploy:
   - echo 'after_deploy'
-  - mvn -pl clean deploy -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn --batch-mode --settings `pwd`/settings.xml -DskipTests=true -Dmaven.javadoc.skip=true -P ossrh
+  - mvn clean deploy -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn --batch-mode --settings `pwd`/settings.xml -DskipTests=true -Dmaven.javadoc.skip=true -P ossrh
